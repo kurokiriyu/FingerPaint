@@ -1,4 +1,6 @@
-package sample.application.memopad;
+package sample.application.fingerpaint;
+
+import android.app.Activity;
 
 public class AndroidMain {
 
@@ -17,7 +19,7 @@ public class AndroidMain {
 //}
 		
 		Activity activity = getMainActivity();
-		activity.onCreate(null);
+//		activity.onCreate(null);
 	}
 
 	public static Activity getMainActivity() {
