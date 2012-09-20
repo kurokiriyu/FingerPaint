@@ -94,6 +94,7 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 		
 		
 		return Boolean.valueOf(true);//
+		//
 		// return Boolean2.TRUE;
 	}
 }
