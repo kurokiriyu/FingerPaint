@@ -14,6 +14,7 @@ import android.view.View;
 import android.view.View.OnTouchListener;
 import android.view.WindowManager;
 import android.widget.ImageView;
+import android.widget.TextView;
 // p.131 リスト５
 import java.io.File;
 import java.io.FileOutputStream;
@@ -26,6 +27,17 @@ import android.graphics.Bitmap.CompressFormat;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MenuInflater;
+
+// p.134 リスト１２
+import android.media.MediaScannerConnection;
+import android.net.Uri;
+
+// p.137 リスト１６
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+
 
 
 
@@ -55,8 +67,8 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 	public Path path;
 	public Bitmap bitmap;
 	public Float x1, y1;	// ラッパークラスの、オブジェクトのフロートを使う。
-		// public Float x1;
-		// public Float y1;
+							// public Float x1;
+							// public Float y1;
 	public Integer w;
 	public Integer h;
 
@@ -82,6 +94,7 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 		
 		w = disp.getWidth();
 		h = disp.getHeight();
+		
 		// Bitmapクラス（Bitmap型）のcreateBitmapメソッド
 		bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
 		paint = new Paint();
@@ -147,6 +160,7 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 				imageNumber++;
 			} while(file.exists());
 			if(writeImage(file)) {
+				scanMedia(file.getPath());	// p.135 リスト１４
 				SharedPreferences.Editor editor = prefs.edit();
 				editor.putInt("imageNumber", imageNumber);
 				editor.commit();
@@ -175,4 +189,66 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 		if(status.equals(Environment.MEDIA_MOUNTED)) result = true;
 		return result;
 	}
+	
+	// p.135 リスト１３
+	MediaScannerConnection mc;
+	void scanMedia(final String fp) {
+		mc = new MediaScannerConnection(this, new MediaScannerConnection.MediaScannerConnectionClient() {
+			public void onScanCompleted(String path, Uri uri) {
+				disconnect();
+			}
+			public void onMediaScannerConnected() {
+				scanFile(fp);
+			}
+		});
+		mc.connect();
+	}
+
+	// p.135 リスト１５
+	void scanFile(String fp) {
+		mc.scanFile(fp, "image/png");
+	}
+	void disconnect() {
+		mc.disconnect();
+	}
+	
+	// p.78 リスト３７
+	if (convertView == null) {
+		convertView = mInflater.inflate(R.layout.list_item_with_icon, null);
+	}
+	
+	TextView fName = (TextView) convertView.findViewById(text1);
+	TextView fTime = (TextView) convertView.findViewById(text2);
+	ImageView fIcon = (ImageView) convertView.findViewById(icon);
+	
+	fName.setText(fc[position].getName());
+	fTime.setText(DateFormat.getDateTimeInstance().format(new Date(fc[position].lastModified())));
+	
+	if(fc[position].isDirectory()) {
+		fIcon.setImageResource(R.drawable.folder);
+	} else {
+		Pattern p = Pattern.compile("\\.png$|\\.jpg$|\\.gif$|\\.jpeg$|\\.bmp$", Pattern.CASE_INSENSITIVE);
+		Matcher m = p.matcher(fc[position].getName());
+		
+		if(m.find())
+		{
+			String path = fc[position].getName());
+			BitmapFactory.Options options = new BitmapFactory.Options();
+			
+			options.inJustDecodeBounds = true;
+			BitmapFactory.decodeFile(path, options);
+			
+			int scaleW = options.outWidth/64;
+			int scaleH = options.outHeight/64;
+			
+			int scale = Math.max(scaleW, scaleH);
+			options.inJustDecodeBounds = false;
+			options.inSampleSize = scale;
+			
+			Bitmap bmp = BitmapFactory.decodeFile(fc[position].getPath(), options);
+			fIcon.setImageBitmap(bmp);	
+		}
+	}
+	return convertView;
+}
 }
