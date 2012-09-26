@@ -1,14 +1,17 @@
 package sample.application.fingerpaint;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.os.Bundle;
 import android.view.Display;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
@@ -38,30 +41,41 @@ import android.graphics.BitmapFactory;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
+// p.78 ƒŠƒXƒg‚R‚S
+import java.io.File;
+import java.text.DateFormat;
+import java.util.Date;
+import android.content.Context;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+// p.79 ƒŠƒXƒg‚R‚W
+import java.io.File;
+import java.io.FileFilter;
+import java.util.Comparator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.os.Environment;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
+import android.widget.ListView;
+
+
+
 
 
 
 public class FingerPaintActivity extends Activity implements OnTouchListener {
 	
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		// p.133 ƒŠƒXƒg‚P‚O
-		MenuInflater mi = getMenuInflater();
-		mi.inflate(R.menu.menu, menu);
-		return super.onCreateOptionsMenu(menu);
-	}
-
-	@Override
-	public boolean onOptionsItemSelected(MenuItem item) {
-		// p.133 ƒŠƒXƒg‚P‚P
-		switch(item.getItemId()) {
-		case R.id.menu_save:
-			save();
-			break;
-		}
-		return super.onOptionsItemSelected(item);
-	}
-
 	public Canvas canvas;
 	public Paint paint;
 	public Path path;
@@ -72,6 +86,7 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 	public Integer w;
 	public Integer h;
 
+	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		// eƒNƒ‰ƒX‚Ì‰Šú‰»
 		super.onCreate(savedInstanceState);
@@ -135,16 +150,70 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 			canvas.drawPath(path, paint);
 			path.reset();
 			break;
-			
 		}
 		ImageView iv = (ImageView)this.findViewById(R.id.imageView1);
 		iv.setImageBitmap(bitmap);
-		
 		return true;
 	}
 	
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		// p.133 ƒŠƒXƒg‚P‚O
+		MenuInflater mi = getMenuInflater();
+		mi.inflate(R.menu.menu, menu);
+		return super.onCreateOptionsMenu(menu);
+	}
+
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		// p.133 ƒŠƒXƒg‚P‚P
+		switch(item.getItemId()) {
+		case R.id.menu_save:
+			save();
+			break;
+		}
+		// p.? ƒŠƒXƒg?
+		case R.id.menu_open:
+			Intent intent = new Intent(this, FilePicker.class);
+			startActivityForResult(intent, 0);
+			break;
+		case R.id.menu_color_change:
+			final String[] items = getResources().getStringArray(R.array.ColorName);
+			final int[] colors = getResources().getIntArray(R.array.Color);
+			AlertDialog.Builder ab = new AlertDialog.Builder(this);
+			ab.setTiltle(R.string.menu_color_change);
+			ab.setItems(items, new DialogInterface.OnClickListener() {
+				public void onClick(DialogInterface dialog, int item) {
+					paint.setColor(colors[item]);
+				}
+			});
+			ab.show();
+			break;
+		case R.id.menu_new;
+			ab = new AlertDialog.Builder(this);
+			ab.setTitle(R.string.menu_new);
+			ab.setMessage(R.string.confirm_new);
+			ab.setPositiveButton(R.string.button_ok,
+					new DialogInterface.OnClickListener() {
+				public void onClick(DialogInterface dialog, int which) {
+					canvas.drawColor(Color.WHITE);
+					((ImageView)findViewById(R.id.imageView1)).setImageBitmap(bitmap);
+				}
+			});
+			ab.setNegativeButton(R.string.button_cancel,
+					new DialogInterface.OnClickListener() {
+				public void onClick(DialogInterface dialog, int which) {
+				}
+			});
+			ab.show();
+			break;
+		}				
+		return super.onOptionsItemSelected(item);
+	}
+
 	// p.131 ƒŠƒXƒg‚U
 	void save() {
+		
 		SharedPreferences prefs = getSharedPreferences("FingerPaintPreferences", MODE_PRIVATE);
 		int imageNumber = prefs.getInt("imageNumber", 1);
 		File file = null;
@@ -192,8 +261,10 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 	
 	// p.135 ƒŠƒXƒg‚P‚R
 	MediaScannerConnection mc;
+	
 	void scanMedia(final String fp) {
-		mc = new MediaScannerConnection(this, new MediaScannerConnection.MediaScannerConnectionClient() {
+		mc = new MediaScannerConnection(this,
+				  new MediaScannerConnection.MediaScannerConnectionClient() {
 			public void onScanCompleted(String path, Uri uri) {
 				disconnect();
 			}
@@ -212,43 +283,71 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 		mc.disconnect();
 	}
 	
-	// p.78 ƒŠƒXƒg‚R‚V
-	if (convertView == null) {
-		convertView = mInflater.inflate(R.layout.list_item_with_icon, null);
+	// p.? ƒŠƒXƒgH
+	Bitmap loadImage(String path) {
+		boolean landscape = false;
+		Bitmap bm;
+		
+		BitmapFactory.Options options = new BitmapFactory.Options();
+		options.inJustDecodeBounds = true;
+		BitmapFactory.decodeFile(path, options);
+		int oh = options.outHeight;
+		int ow = options.outWidth;
+		
+		if(ow > oh) {
+			landscape = true;
+			oh = options.outWidth;
+			ow = options.outHeight;
+		}
+		
+		options.inJustDecodeBounds = false;
+		options.inSampleSize = Math.max(ow/w, oh/h);
+		bm = BitmapFactory.decodeFile(path, options);
+		
+		if(landscape) {
+			Matrix matrix = new Matrix();
+			matrix.setRotate(90.Of);
+			bm = Bitmap.createBitmap(bm, 0, 0,
+					bm.getWidth(), bm.getHeight(), matrix, false);
+		}
+		bm = Bitmap.createScaledBitmap(bm, (int)(w), (int)(w*(((double)oh)/((double)ow))), false);
+		
+		Bitmap offBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+		Canvas offCanvas = new Canvas(offBitmap);
+		offCanvas.drawBitmap(bm, 0, (h-bm.getHeight())/2, null);
+		bm = offBitmap;
+		return bm;
 	}
 	
-	TextView fName = (TextView) convertView.findViewById(text1);
-	TextView fTime = (TextView) convertView.findViewById(text2);
-	ImageView fIcon = (ImageView) convertView.findViewById(icon);
-	
-	fName.setText(fc[position].getName());
-	fTime.setText(DateFormat.getDateTimeInstance().format(new Date(fc[position].lastModified())));
-	
-	if(fc[position].isDirectory()) {
-		fIcon.setImageResource(R.drawable.folder);
-	} else {
-		Pattern p = Pattern.compile("\\.png$|\\.jpg$|\\.gif$|\\.jpeg$|\\.bmp$", Pattern.CASE_INSENSITIVE);
-		Matcher m = p.matcher(fc[position].getName());
-		
-		if(m.find())
-		{
-			String path = fc[position].getName());
-			BitmapFactory.Options options = new BitmapFactory.Options();
-			
-			options.inJustDecodeBounds = true;
-			BitmapFactory.decodeFile(path, options);
-			
-			int scaleW = options.outWidth/64;
-			int scaleH = options.outHeight/64;
-			
-			int scale = Math.max(scaleW, scaleH);
-			options.inJustDecodeBounds = false;
-			options.inSampleSize = scale;
-			
-			Bitmap bmp = BitmapFactory.decodeFile(fc[position].getPath(), options);
-			fIcon.setImageBitmap(bmp);	
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
+		if(resultCode == RESULT_OK) {
+			bitmap = loadimage(data.getStringExtra("fn"));
+			canvas = new Canvas(bitmap);
+			ImageView iv = (ImageView) this.findViewById(R.id.imageView1);
+			iv.setImageBitmap(bitmap);
 		}
 	}
-	return convertView;
-}
+
+	@Override
+	public boolean onKeyDown(int keyCode, KeyEvent event) {
+		if(keyCode == KeyEvent.KEYCODE_BACK) {
+			AlertDialog.Builder ab = new AlertDialog.Builder(this);
+			ab.setTitle(R.string.title_exit);
+			ab.setMessage(R.string.confirm_new);
+			ab.setPositiveButton(R.string.button_ok, new DialogInterface.OnClickListener() {				
+				public void onClick(DialogInterface dialog, int which) {
+					finish();
+				}
+			});
+			ab.setNegativeButton(R.string.button_cansel, new DialogInterface.OnClickListener() {
+				public void onClick(DialogInterface dialog, int which) {
+				}
+			});
+			ab.show();
+			return true;
+		}
+		return super.onKeyDown(keyCode, event);
+	}
 }
