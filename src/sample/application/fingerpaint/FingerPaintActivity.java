@@ -20,7 +20,9 @@ import android.widget.ImageView;
 import android.widget.TextView;
 // p.131 ÉäÉXÉgÇT
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.text.DecimalFormat;
 import android.os.Environment;
 import android.content.SharedPreferences;
@@ -60,6 +62,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import android.content.DialogInterface;
+// p.139 ÉäÉXÉgÇQÇP
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -69,6 +72,9 @@ import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ListView;
 
+// p.139 ÉäÉXÉgÇQÇR
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 
 
 
@@ -171,17 +177,18 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 		case R.id.menu_save:
 			save();
 			break;
-		}
-		// p.? ÉäÉXÉg?
+		
+		// p.139 ÉäÉXÉgÇQÇQ
 		case R.id.menu_open:
 			Intent intent = new Intent(this, FilePicker.class);
 			startActivityForResult(intent, 0);
 			break;
+		// p.142 ÉäÉXÉgÇQÇV
 		case R.id.menu_color_change:
 			final String[] items = getResources().getStringArray(R.array.ColorName);
 			final int[] colors = getResources().getIntArray(R.array.Color);
 			AlertDialog.Builder ab = new AlertDialog.Builder(this);
-			ab.setTiltle(R.string.menu_color_change);
+			ab.setTitle(R.string.menu_color_change);
 			ab.setItems(items, new DialogInterface.OnClickListener() {
 				public void onClick(DialogInterface dialog, int item) {
 					paint.setColor(colors[item]);
@@ -189,7 +196,8 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 			});
 			ab.show();
 			break;
-		case R.id.menu_new;
+		// p.143 ÉäÉXÉgÇQÇW
+		case R.id.menu_new:
 			ab = new AlertDialog.Builder(this);
 			ab.setTitle(R.string.menu_new);
 			ab.setMessage(R.string.confirm_new);
@@ -238,15 +246,22 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 	}
 	
 	// p.132 ÉäÉXÉgÇV
-	boolean writeImage(File file) {
+	private boolean writeImage(File file) throws IOException {
+		FileOutputStream fo = null;
 		try {
-			FileOutputStream fo = new FileOutputStream(file);
+			fo = new FileOutputStream(file);
 			bitmap.compress(CompressFormat.PNG, 100, fo);
 			fo.flush();
 			fo.close();
-		} catch(Exception e) {
-			System.out.println(e.getLocalizedMessage());
-			return false;
+		} catch(FileNotFoundException r) {
+			r.printStackTrace();	
+		} catch(IOException r) {
+		} finally {
+			try {
+				fo.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 		return true;
 	}
@@ -263,6 +278,7 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 	MediaScannerConnection mc;
 	
 	void scanMedia(final String fp) {
+		// fp = "hoge";	Å©Å@finalÇ™Ç†ÇÈÇÃÇ≈ÅAÇ±ÇÃàÍçsÇÕèëÇØÇ»Ç¢ÅB
 		mc = new MediaScannerConnection(this,
 				  new MediaScannerConnection.MediaScannerConnectionClient() {
 			public void onScanCompleted(String path, Uri uri) {
@@ -283,7 +299,7 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 		mc.disconnect();
 	}
 	
-	// p.? ÉäÉXÉgÅH
+	// p.139 ÉäÉXÉgÇQÇS
 	Bitmap loadImage(String path) {
 		boolean landscape = false;
 		Bitmap bm;
@@ -306,7 +322,7 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 		
 		if(landscape) {
 			Matrix matrix = new Matrix();
-			matrix.setRotate(90.Of);
+			matrix.setRotate(90.0f);
 			bm = Bitmap.createBitmap(bm, 0, 0,
 					bm.getWidth(), bm.getHeight(), matrix, false);
 		}
@@ -322,8 +338,9 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
+		// p.140 ÉäÉXÉgÇQÇT
 		if(resultCode == RESULT_OK) {
-			bitmap = loadimage(data.getStringExtra("fn"));
+			bitmap = loadImage(data.getStringExtra("fn"));
 			canvas = new Canvas(bitmap);
 			ImageView iv = (ImageView) this.findViewById(R.id.imageView1);
 			iv.setImageBitmap(bitmap);
@@ -332,6 +349,7 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 
 	@Override
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
+		// p.144 ÉäÉXÉgÇQÇX
 		if(keyCode == KeyEvent.KEYCODE_BACK) {
 			AlertDialog.Builder ab = new AlertDialog.Builder(this);
 			ab.setTitle(R.string.title_exit);
@@ -341,7 +359,7 @@ public class FingerPaintActivity extends Activity implements OnTouchListener {
 					finish();
 				}
 			});
-			ab.setNegativeButton(R.string.button_cansel, new DialogInterface.OnClickListener() {
+			ab.setNegativeButton(R.string.button_cancel, new DialogInterface.OnClickListener() {
 				public void onClick(DialogInterface dialog, int which) {
 				}
 			});
